@@ -2,6 +2,10 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
+github.com/smart-libs/go-adapter/interfaces v0.0.1 h1:qgHrwQEcKa+D0gQMdIQVmg3X0O+w7QtjkOueLU6ag2g=
+github.com/smart-libs/go-adapter/interfaces v0.0.1/go.mod h1:dUzbmPy3NbyTxyvh/f0chNxoUtQhgFmSchiTPf6RABs=
+github.com/smart-libs/go-crosscutting/converter/lib v0.0.1 h1:IW85xyp8+TBmdozpOgPDg1e08Fv+rlVamhNfoVz48fo=
+github.com/smart-libs/go-crosscutting/converter/lib v0.0.1/go.mod h1:yU0HffzngMAh8J01tRUXbt334d2UG1NHSD008h8vprw=
 github.com/stretchr/testify v1.9.0 h1:HtqpIVDClZ4nwg75+f6Lvsy/wHu+3BoSGCbBAcpTsTg=
 github.com/stretchr/testify v1.9.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
 go.uber.org/dig v1.17.1 h1:Tga8Lz8PcYNsWsyHMZ1Vm0OQOUaJNDyvPImgbAu9YSc=

@@ -26,10 +26,10 @@ func NewMultiFlagSetAdapter(configPerUseCaseName ConfigPerUseCaseName) (Adapter,
 func (m MultiFlagSetAdapter) Run(ctx context.Context, args ...string) (exitCode int) {
 	resolvedArgs := firstNotEmpty(args, os.Args)
 	useCaseName := resolvedArgs[0]
-	err, result := m.tryRun(ctx, m.find(useCaseName), resolvedArgs[1:])
+	result, err := m.tryRun(ctx, m.find(useCaseName), resolvedArgs[1:])
 	if err != nil && len(resolvedArgs) > 1 {
 		useCaseName = resolvedArgs[1]
-		err, result = m.tryRun(ctx, m.find(useCaseName), resolvedArgs[2:])
+		result, err = m.tryRun(ctx, m.find(useCaseName), resolvedArgs[2:])
 	}
 
 	if err != nil {
@@ -39,9 +39,9 @@ func (m MultiFlagSetAdapter) Run(ctx context.Context, args ...string) (exitCode 
 	return result
 }
 
-func (m MultiFlagSetAdapter) tryRun(ctx context.Context, config *Config, args []string) (error, int) {
+func (m MultiFlagSetAdapter) tryRun(ctx context.Context, config *Config, args []string) (int, error) {
 	if config == nil {
-		return ErrNilConfig{}, 0
+		return 0, ErrNilConfig{}
 	}
 
 	adapter, err := NewSingleFlagSetAdapter(*config)
@@ -49,5 +49,5 @@ func (m MultiFlagSetAdapter) tryRun(ctx context.Context, config *Config, args []
 		panic(err)
 	}
 
-	return nil, adapter.Run(ctx, args...)
+	return adapter.Run(ctx, args...), nil
 }

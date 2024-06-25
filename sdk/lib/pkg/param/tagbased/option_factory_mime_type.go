@@ -3,6 +3,7 @@ package tagbased
 import (
 	"encoding/json"
 	"fmt"
+	sdk "github.com/smart-libs/go-adapter/sdk/lib/pkg"
 	sdkparam "github.com/smart-libs/go-adapter/sdk/lib/pkg/param"
 	"github.com/smart-libs/go-adapter/sdk/lib/pkg/param/mimetype"
 	converter "github.com/smart-libs/go-crosscutting/converter/lib/pkg"
@@ -32,6 +33,13 @@ func createMimeTypeOption(field reflect.StructField, converters ...converter.Con
 	resolvedConverters := converter.ConvertersList(converters)
 	if tagValue, found := field.Tag.Lookup(tagName); found {
 		if optionFactory, found := MimeTypeOptionMap[tagValue]; found {
+			if sdk.DebugEnabled {
+				sdk.DebugDump(fmt.Sprintf("%s-tag applying", tagName),
+					sdk.DumpVar{Name: "tagValue", Value: tagValue},
+					sdk.DumpVar{Name: "field.Name", Value: field.Name},
+				)
+			}
+
 			return optionFactory(field, resolvedConverters)
 		}
 		return nil, fmt.Errorf("unknow value=[%s] using with tag %s", tagValue, tagName)

@@ -10,7 +10,3 @@ type (
 		Run(ctx context.Context, args ...string) (exitCode int)
 	}
 )
-
-var (
-	DebugEnabled = false
-)

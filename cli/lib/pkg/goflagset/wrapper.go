@@ -11,6 +11,12 @@ type (
 	wrapper struct {
 		*flag.FlagSet
 	}
+
+	dump = cliadpt.DumpVar
+)
+
+const (
+	debugWrapper = "goflagset.wrapper"
 )
 
 func (f *wrapper) Usage() {
@@ -23,29 +29,35 @@ func Wrap(fs flag.FlagSet) cliadpt.FlagSet {
 	return &wrapper{&fs}
 }
 
-func (f *wrapper) GetValue(flagName string) (any, bool) {
-	var found *flag.Flag
+func (f *wrapper) GetValue(flagName string) (value any, foundVar bool) {
+	if cliadpt.DebugEnabled {
+		cliadpt.DebugDump(debugWrapper,
+			dump{Name: "flagName", Value: flagName},
+			dump{Name: "f.FlagSet", Value: f.FlagSet})
+		defer func() {
+			cliadpt.DebugDump(debugWrapper,
+				dump{Name: "value", Value: value},
+				dump{Name: "foundVar", Value: foundVar})
+		}()
+	}
+	var flagFound *flag.Flag
 	f.Visit(func(flagSet *flag.Flag) {
-		if found == nil && flagSet.Name == flagName {
-			found = flagSet
+		if flagFound == nil && flagSet.Name == flagName {
+			flagFound = flagSet
 		}
 	})
-	if found == nil {
-		if found = f.Lookup(flagName); found != nil {
-			if found.DefValue != "" {
-				return getFlagInParamValueDebug(f.FlagSet, flagName, found.DefValue, true)
+	foundVar = flagFound != nil
+	if !foundVar {
+		if flagFound = f.Lookup(flagName); flagFound != nil {
+			if flagFound.DefValue != "" {
+				foundVar = true
+				value = flagFound.DefValue
 			}
 		}
-		return getFlagInParamValueDebug(f.FlagSet, flagName, nil, false)
+	} else {
+		value = flagFound.Value.String()
 	}
-	return getFlagInParamValueDebug(f.FlagSet, flagName, found.Value.String(), true)
-}
-
-func getFlagInParamValueDebug(flagSet *flag.FlagSet, flagName string, value any, found bool) (any, bool) {
-	if cliadpt.DebugEnabled {
-		fmt.Printf("goflagset.wrapper: FlagSet[%v], flagName=[%s], return (value=[%v], found=[%v])\n", flagSet, flagName, value, found)
-	}
-	return value, found
+	return
 }
 
 var _ cliadpt.FlagSet = &wrapper{}
