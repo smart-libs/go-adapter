@@ -23,6 +23,7 @@ func NewSingleFlagSetAdapter(config Config) (Adapter, error) {
 	}
 	return SingleFlagSetAdapter{
 		Config: Config{
+			OsArgsUseDisabled:           config.OsArgsUseDisabled,
 			ArgumentsValidationDisabled: config.ArgumentsValidationDisabled,
 			Bindings:                    config.Bindings,
 			EnvGetter:                   firstNotNil(config.EnvGetter, os.LookupEnv),
@@ -32,7 +33,10 @@ func NewSingleFlagSetAdapter(config Config) (Adapter, error) {
 }
 
 func (s SingleFlagSetAdapter) Run(ctx context.Context, args ...string) (exitCode int) {
-	input, err := NewInput(s.Config.EnvGetter, s.Config.FlagSet, firstNotEmpty(args, os.Args[1:])...)
+	if len(args) == 0 && !s.OsArgsUseDisabled {
+		args = os.Args[1:]
+	}
+	input, err := NewInput(s.Config.EnvGetter, s.Config.FlagSet, args...)
 	if err != nil {
 		panic(err)
 	}

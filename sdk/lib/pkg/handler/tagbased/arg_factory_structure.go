@@ -9,7 +9,22 @@ import (
 )
 
 type (
-	fieldSetter struct {
+	// FieldSetter sets the structure field value that belongs to the structureInstance given and using the
+	// given accessor that has the value to be set to the field.
+	FieldSetter interface {
+		set(ctx context.Context, accessor adapter.InputAccessor, structureInstance reflect.Value)
+	}
+
+	// recursiveFieldSetter is used when the field does not have the flag tag, but it is a structure that owns fields
+	// that have the flag tag.
+	recursiveFieldSetter struct {
+		field             reflect.StructField
+		paramRef          adapter.ParamRef
+		fieldValueFactory argFactoryFunc
+		isPointer         bool
+	}
+	// defaultFieldSetter is used when the field has the flag set and it is associated with a param spec.
+	defaultFieldSetter struct {
 		field    reflect.StructField
 		paramRef adapter.ParamRef
 	}
@@ -22,14 +37,24 @@ type (
 		structureType reflect.Type
 
 		// fieldSetters has all the functions needed to set each field value of the structure specified by structureType
-		fieldSetters []fieldSetter
+		fieldSetters []FieldSetter
 
 		// resolveReturnType is the function that knows whether the structure must be returned as a pointer or not.
 		resolveReturnType func(structureInstance reflect.Value) reflect.Value
 	}
 )
 
-func (f fieldSetter) set(accessor adapter.InputAccessor, structureInstance reflect.Value) {
+func (f recursiveFieldSetter) set(ctx context.Context, accessor adapter.InputAccessor, structureInstance reflect.Value) {
+	fieldValue := f.fieldValueFactory(ctx, accessor)
+	field := structureInstance.Elem().FieldByIndex(f.field.Index)
+	if f.isPointer {
+		field.Set(fieldValue)
+	} else {
+		field.Set(fieldValue)
+	}
+}
+
+func (f defaultFieldSetter) set(_ context.Context, accessor adapter.InputAccessor, structureInstance reflect.Value) {
 	field := structureInstance.Elem().FieldByIndex(f.field.Index)
 	err := accessor.CopyValue(f.paramRef, field.Addr().Interface())
 	if err != nil {
@@ -38,15 +63,41 @@ func (f fieldSetter) set(accessor adapter.InputAccessor, structureInstance refle
 }
 
 // create is the function that creates and instantiate the structure
-func (s structureArgFactory) create(_ context.Context, factory adapter.InputAccessor) reflect.Value {
+func (s structureArgFactory) create(ctx context.Context, factory adapter.InputAccessor) reflect.Value {
 	structureInstance := reflect.New(s.structureType)
 	for _, setter := range s.fieldSetters {
-		setter.set(factory, structureInstance)
+		setter.set(ctx, factory, structureInstance)
 	}
 	return s.resolveReturnType(structureInstance)
 }
 
-func createArgFactoryForStructure(structureType reflect.Type, factory tagbased.AbstractInputSpecBuilder) argFactoryFunc {
+// tryFallback is invoked when the field does not have the flag tag. The fallback checks whether the field is another
+// structure and go deeper trying to find flag tags in the inner fields recursively.
+func tryFallback(structureType reflect.Type, field reflect.StructField, factory tagbased.AbstractInputSpecBuilder) FieldSetter {
+	if field.Type.Kind() == reflect.Struct || (field.Type.Kind() == reflect.Ptr && field.Type.Elem().Kind() == reflect.Struct) {
+		structureFactory := createStructureArgFactory(field.Type, factory)
+		if len(structureFactory.fieldSetters) > 0 {
+			return recursiveFieldSetter{
+				field:             field,
+				paramRef:          adapter.StringParamRef(fmt.Sprintf("%s.%s", structureType.Name(), field.Name)),
+				fieldValueFactory: structureFactory.create,
+			}
+		}
+	}
+	return nil
+}
+
+func createStructureArgFactory(givenType reflect.Type, factory tagbased.AbstractInputSpecBuilder) structureArgFactory {
+	isPointer := false
+	structureType := givenType
+	if givenType.Kind() != reflect.Struct {
+		if givenType.Kind() == reflect.Ptr && givenType.Elem().Kind() == reflect.Struct {
+			isPointer = true
+			structureType = givenType.Elem()
+		} else {
+			panic(fmt.Errorf("given type=[%s] is neither a structure nor a pointer to structure", givenType.String()))
+		}
+	}
 	result := structureArgFactory{structureType: structureType}
 
 	numOfFields := structureType.NumField()
@@ -54,21 +105,31 @@ func createArgFactoryForStructure(structureType reflect.Type, factory tagbased.A
 		field := structureType.Field(i)
 		ref := adapter.StringParamRef(fmt.Sprintf("%s.%s", structureType.Name(), field.Name))
 		if err := factory.AddInputParamSpec(ref, field); err != nil {
+			if _, ok := err.(tagbased.ErrNoInputParamSpecCreatedForField); ok {
+				if fieldSetter := tryFallback(structureType, field, factory); fieldSetter != nil {
+					result.fieldSetters = append(result.fieldSetters, fieldSetter)
+				}
+				continue // ignore the field without the flag tag
+			}
 			panic(err)
 		}
 
-		result.fieldSetters = append(result.fieldSetters, fieldSetter{field: field, paramRef: ref})
+		result.fieldSetters = append(result.fieldSetters, defaultFieldSetter{field: field, paramRef: ref})
 	}
 
 	result.resolveReturnType = func(structValue reflect.Value) reflect.Value {
 		return structValue.Elem()
 	}
 
-	if structureType.Kind() == reflect.Ptr {
+	if isPointer {
 		result.resolveReturnType = func(structValue reflect.Value) reflect.Value {
 			return structValue
 		}
 	}
 
-	return result.create
+	return result
+}
+
+func createArgFactoryForStructure(structureType reflect.Type, factory tagbased.AbstractInputSpecBuilder) argFactoryFunc {
+	return createStructureArgFactory(structureType, factory).create
 }

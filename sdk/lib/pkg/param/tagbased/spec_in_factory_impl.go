@@ -22,8 +22,7 @@ func (f registryBasedInputParamSpecFactory[Input]) CreateInputParamSpec(field re
 			return spec, nil
 		}
 	}
-	return nil, fmt.Errorf("no sdkparam.InputParamSpec[Input] instance created for Field=[%s] using tags=[%v]",
-		field.Name, field.Tag)
+	return nil, ErrNoInputParamSpecCreatedForField{Field: field}
 }
 
 func NewsInputParamSpecFactory[Input any](registry InputParamSpecFactoryRegistry[Input]) InputParamSpecFactory[Input] {
