@@ -105,7 +105,7 @@ func Test_InputStringFlag_WithTagAndDefaults(t *testing.T) {
 
 	type MyParam string
 	type request2 struct {
-		StringParam MyParam `flag:"s"`
+		StringParam MyParam `flag:"s"` // the conversion from string to MyParam is performed by go-crosscutting/converter/lib
 	}
 	const stringRedefinedValue = "XPTO"
 	TagBasedWithArgsTest[request2, error]{
@@ -118,6 +118,27 @@ func Test_InputStringFlag_WithTagAndDefaults(t *testing.T) {
 		givenAssertions: func(t *testing.T, req request2) error {
 			t.Run("Even if MyParam is a string redefinition, it will be converted by go-crosscutting/converter/lib", func(t *testing.T) {
 				assert.Equal(t, MyParam(stringRedefinedValue), req.StringParam)
+			})
+			return nil
+		},
+	}.Run(t)
+
+	type Param struct {
+		StringParam string `flag:"s"`
+	}
+	type request3 struct {
+		Param // anonymous structure as a field with tagged field inside. This is resolved by go-adapter/cli
+	}
+	TagBasedWithArgsTest[request3, error]{
+		givenFlagSet: func() *flag.FlagSet {
+			result := flag.NewFlagSet("test", flag.PanicOnError)
+			result.String("s", "", "")
+			return result
+		},
+		givenArgs: []string{"-s", stringRedefinedValue},
+		givenAssertions: func(t *testing.T, req request3) error {
+			t.Run("Even if MyParam is a string redefinition, it will be converted by go-crosscutting/converter/lib", func(t *testing.T) {
+				assert.Equal(t, stringRedefinedValue, req.StringParam)
 			})
 			return nil
 		},
