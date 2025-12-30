@@ -36,7 +36,7 @@ func (b *builder[Input, Output]) Build() sdkhandler.Handler[Input, Output] {
 	return sdkusecasehandler.NewUseCaseHandler[Input, Output](useCase, b.inputSpecs, b.outputSpecs)
 }
 
-func (b *builder[Input, Output]) WithOutTagBasedFactory(factory tagbased.OutputParamSpecFactory[Output]) sdkhandler.TagBasedBuildStep[Input, Output] {
+func (b *builder[Input, Output]) WithOutTagBasedFactory(factory tagbased.OutputParamSpecFactory[Output]) sdkhandler.TagBasedWithErrorBuildStep[Input, Output] {
 	var err error
 	outSpecBuilder := tagbased.NewOutputSpecsBuilder[Output](factory)
 	outputBuilderActionsFactory := OutputBuilderActionsFactory{AbstractOutputSpecBuilder: outSpecBuilder}
@@ -44,7 +44,17 @@ func (b *builder[Input, Output]) WithOutTagBasedFactory(factory tagbased.OutputP
 	if err != nil {
 		panic(err)
 	}
+	err = outSpecBuilder.AddOutputErrorParamSpec(b.outputSpecs.GetErrorParamSpec())
+	if err != nil {
+		panic(err)
+	}
 	b.outputSpecs = outSpecBuilder.Build()
+	return b
+}
+
+// WithOutErrorParamSpec allows you to set an action to handle the error returned by the handlerFunc
+func (b *builder[Input, Output]) WithOutErrorParamSpec(spec sdkparam.OutputParamSpec[Output]) sdkhandler.TagBasedBuildStep[Input, Output] {
+	b.outputSpecs.AddErrorParamSpec(spec)
 	return b
 }
 

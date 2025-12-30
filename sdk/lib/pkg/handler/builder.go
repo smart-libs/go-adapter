@@ -18,12 +18,17 @@ type (
 		Output() OutputSpecStep[Input, Output]
 	}
 
+	TagBasedWithErrorBuildStep[Input any, Output any] interface {
+		WithOutErrorParamSpec(spec sdkparam.OutputParamSpec[Output]) TagBasedBuildStep[Input, Output]
+		TagBasedBuildStep[Input, Output]
+	}
+
 	TagBasedBuildStep[Input any, Output any] interface {
 		Build() Handler[Input, Output]
 	}
 
 	TagBasedOutputSpecStep[Input any, Output any] interface {
-		WithOutTagBasedFactory(factory tagbased.OutputParamSpecFactory[Output]) TagBasedBuildStep[Input, Output]
+		WithOutTagBasedFactory(factory tagbased.OutputParamSpecFactory[Output]) TagBasedWithErrorBuildStep[Input, Output]
 	}
 
 	TagBasedInputSpecStep[Input any, Output any] interface {

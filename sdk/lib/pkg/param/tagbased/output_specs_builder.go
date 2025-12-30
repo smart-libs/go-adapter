@@ -13,6 +13,7 @@ type (
 
 	OutputSpecBuilder[Output any] interface {
 		AbstractOutputSpecBuilder
+		AddOutputErrorParamSpec(action sdkparam.OutputParamSpec[Output]) (err error)
 		Build() sdkparam.OutputSpecs[Output]
 	}
 
@@ -30,11 +31,16 @@ func (d *defaultOutputSpecBuilder[Output]) Build() sdkparam.OutputSpecs[Output] 
 	return d.outputSpec
 }
 
+func (d *defaultOutputSpecBuilder[Output]) AddOutputErrorParamSpec(action sdkparam.OutputParamSpec[Output]) (err error) {
+	d.outputSpec.AddErrorParamSpec(action)
+	return nil
+}
+
 func (d *defaultOutputSpecBuilder[Output]) AddOutputParamSpec(ref adapter.ParamRef, field reflect.StructField) (err error) {
-	var inputParamSpec sdkparam.OutputParamSpec[Output]
-	if inputParamSpec, err = d.factory.CreateOutputParamSpec(field); err != nil {
+	var outputParamSpec sdkparam.OutputParamSpec[Output]
+	if outputParamSpec, err = d.factory.CreateOutputParamSpec(field); err != nil {
 		return
 	}
-	d.outputSpec.AddParamSpec(ref, inputParamSpec)
+	d.outputSpec.AddParamSpec(ref, outputParamSpec)
 	return nil
 }

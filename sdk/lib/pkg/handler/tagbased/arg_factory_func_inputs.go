@@ -31,8 +31,12 @@ func createArgFactoriesForFunction(funcType reflect.Type, factory tagbased.Abstr
 }
 
 func assertIsStruct(argType reflect.Type) reflect.Type {
-	if argType == nil || argType.Kind() != reflect.Struct {
-		panic(fmt.Errorf("handler argument must be a structure, not=[%s]", argType))
+	fName := "tagbasedhandler.assertIsStruct"
+	if argType == nil {
+		panic(fmt.Errorf("%s: handler argument type cannot be nil", fName))
+	}
+	if argType.Kind() != reflect.Struct {
+		panic(fmt.Errorf("%s: handler argument must be a structure, not=[%s]", fName, argType))
 	}
 	return argType
 }

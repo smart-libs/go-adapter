@@ -2,6 +2,7 @@ package tagbasedhandler
 
 import (
 	"github.com/smart-libs/go-adapter/interfaces/pkg/adapter"
+	"github.com/smart-libs/go-crosscutting/assertions/lib/pkg/check"
 	"reflect"
 )
 
@@ -38,7 +39,11 @@ func createOutputActionToCallAllElemOutputAction(elementAction OutputBuilderActi
 
 func createOutputActionToHandleTheFieldValueOutputAction(ref adapter.ParamRef, field reflect.StructField) OutputBuilderActionFunc {
 	return func(builder adapter.OutputBuilder, output any) {
-		builder.WithParam(ref, getAsValueOf(output).FieldByName(field.Name))
+		// if output is nil, then FieldByName will fail with panic. To avoid this,
+		// builder.WithParam is not invoked if the output is nil.
+		if !check.IsNil(output) {
+			builder.WithParam(ref, getAsValueOf(output).FieldByName(field.Name))
+		}
 	}
 }
 
