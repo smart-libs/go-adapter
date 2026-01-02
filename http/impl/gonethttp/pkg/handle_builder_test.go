@@ -52,6 +52,48 @@ func Test_buildPath(t *testing.T) {
 			path:           "/api/users/123",
 			expectedResult: "PUT /api/users/123",
 		},
+		{
+			name:           "DELETE method with path",
+			method:         "DELETE",
+			path:           "/api/users/123",
+			expectedResult: "DELETE /api/users/123",
+		},
+		{
+			name:           "PATCH method with path",
+			method:         "PATCH",
+			path:           "/api/users/123",
+			expectedResult: "PATCH /api/users/123",
+		},
+		{
+			name:           "empty path with method",
+			method:         "GET",
+			path:           "",
+			expectedResult: "GET ",
+		},
+		{
+			name:           "empty method and empty path",
+			method:         "",
+			path:           "",
+			expectedResult: "",
+		},
+		{
+			name:           "path with query parameters",
+			method:         "GET",
+			path:           "/api/users?page=1",
+			expectedResult: "GET /api/users?page=1",
+		},
+		{
+			name:           "path with special characters",
+			method:         "GET",
+			path:           "/api/users/{id}",
+			expectedResult: "GET /api/users/{id}",
+		},
+		{
+			name:           "root path",
+			method:         "GET",
+			path:           "/",
+			expectedResult: "GET /",
+		},
 	}
 
 	for _, tt := range tests {
@@ -365,6 +407,234 @@ func Test_buildAndAddHandles_EmptyBindings(t *testing.T) {
 
 	if len(registeredPaths) != 0 {
 		t.Errorf("No paths should be registered for empty bindings, got %d", len(registeredPaths))
+	}
+}
+
+func Test_buildAndAddHandles_NilHandler(t *testing.T) {
+	// Test with nil handler - should still register paths
+	bindings := httpadpt.Bindings{
+		{
+			Condition: httpadpt.Condition{
+				Path:    stringPtr("/api/test"),
+				Methods: []string{"GET"},
+			},
+			Handler: nil, // nil handler
+		},
+	}
+
+	registeredPaths := make(map[string]bool)
+	var registeredHandler http.Handler
+	addHandle := func(path string, handler http.Handler) {
+		registeredPaths[path] = true
+		registeredHandler = handler
+	}
+
+	err := buildAndAddHandles(addHandle, bindings)
+
+	if err != nil {
+		t.Errorf("buildAndAddHandles() error = %v, want nil", err)
+	}
+
+	if len(registeredPaths) != 1 {
+		t.Errorf("Expected 1 path registered, got %d", len(registeredPaths))
+	}
+
+	if !registeredPaths["GET /api/test"] {
+		t.Error("Expected path 'GET /api/test' to be registered")
+	}
+
+	// Handler should be created even if original was nil (buildHandler creates a wrapper)
+	if registeredHandler == nil {
+		t.Error("Expected handler to be created, got nil")
+	}
+}
+
+func Test_buildAndAddHandles_MultipleMethodsSamePath(t *testing.T) {
+	// Test multiple methods for the same path
+	bindings := httpadpt.Bindings{
+		{
+			Condition: httpadpt.Condition{
+				Path:    stringPtr("/api/users"),
+				Methods: []string{"GET", "POST", "PUT", "DELETE"},
+			},
+			Handler: &mockHandler{},
+		},
+	}
+
+	registeredPaths := make(map[string]bool)
+	addHandle := func(path string, handler http.Handler) {
+		registeredPaths[path] = true
+	}
+
+	err := buildAndAddHandles(addHandle, bindings)
+
+	if err != nil {
+		t.Errorf("buildAndAddHandles() error = %v, want nil", err)
+	}
+
+	expectedPaths := []string{"GET /api/users", "POST /api/users", "PUT /api/users", "DELETE /api/users"}
+	if len(registeredPaths) != len(expectedPaths) {
+		t.Errorf("Expected %d paths registered, got %d", len(expectedPaths), len(registeredPaths))
+	}
+
+	for _, expectedPath := range expectedPaths {
+		if !registeredPaths[expectedPath] {
+			t.Errorf("Expected path %q to be registered", expectedPath)
+		}
+	}
+}
+
+func Test_buildAndAddHandles_ErrorInMiddle(t *testing.T) {
+	// Test that error stops processing and no paths are registered after error
+	bindings := httpadpt.Bindings{
+		{
+			Condition: httpadpt.Condition{
+				Path:    stringPtr("/api/valid"),
+				Methods: []string{"GET"},
+			},
+			Handler: &mockHandler{},
+		},
+		{
+			Condition: httpadpt.Condition{
+				Path:    nil, // This will cause an error
+				Methods: []string{"POST"},
+			},
+			Handler: &mockHandler{},
+		},
+		{
+			Condition: httpadpt.Condition{
+				Path:    stringPtr("/api/should-not-register"),
+				Methods: []string{"PUT"},
+			},
+			Handler: &mockHandler{},
+		},
+	}
+
+	registeredPaths := make(map[string]bool)
+	addHandle := func(path string, handler http.Handler) {
+		registeredPaths[path] = true
+	}
+
+	err := buildAndAddHandles(addHandle, bindings)
+
+	if err == nil {
+		t.Error("buildAndAddHandles() expected error for nil path, got nil")
+	}
+
+	// First binding should be registered before error
+	if !registeredPaths["GET /api/valid"] {
+		t.Error("Expected first valid path to be registered before error")
+	}
+
+	// Paths after error should not be registered
+	if registeredPaths["PUT /api/should-not-register"] {
+		t.Error("Expected path after error to not be registered")
+	}
+}
+
+func Test_buildHandler_ContextPropagation(t *testing.T) {
+	// Test that context is properly passed to handler
+	var receivedCtx context.Context
+	handler := &mockHandler{
+		invokeFunc: func(ctx context.Context, input httpadpt.Request, output *httpadpt.Response) error {
+			receivedCtx = ctx
+			output.StatusCode = intPtr(200)
+			return nil
+		},
+	}
+
+	httpHandler := buildHandler(handler)
+	req := httptest.NewRequest("GET", "/test", nil)
+	w := httptest.NewRecorder()
+
+	httpHandler(w, req)
+
+	if receivedCtx == nil {
+		t.Error("Expected context to be passed to handler, got nil")
+	}
+
+	if receivedCtx != req.Context() {
+		t.Error("Expected context to be the request context")
+	}
+}
+
+func Test_buildHandler_EmptyError(t *testing.T) {
+	// Test with empty error message
+	emptyError := errors.New("")
+	handler := &mockHandler{
+		invokeFunc: func(ctx context.Context, input httpadpt.Request, output *httpadpt.Response) error {
+			return emptyError
+		},
+	}
+
+	httpHandler := buildHandler(handler)
+	req := httptest.NewRequest("GET", "/test", nil)
+	w := httptest.NewRecorder()
+
+	httpHandler(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("Status code = %d, want %d", w.Code, http.StatusInternalServerError)
+	}
+
+	// Empty error should still result in newline
+	if w.Body.String() != "\n" {
+		t.Errorf("Body = %q, want %q", w.Body.String(), "\n")
+	}
+}
+
+func Test_buildHandler_ResponseWithAllFields(t *testing.T) {
+	// Test response with status code, headers, and body all set
+	handler := &mockHandler{
+		invokeFunc: func(ctx context.Context, input httpadpt.Request, output *httpadpt.Response) error {
+			statusCode := 201
+			output.StatusCode = &statusCode
+			output.Header = map[string][]string{
+				"Content-Type": {"application/json"},
+				"Location":     {"/api/users/123"},
+			}
+			output.Body = []byte(`{"id":123,"name":"test"}`)
+			return nil
+		},
+	}
+
+	httpHandler := buildHandler(handler)
+	req := httptest.NewRequest("GET", "/test", nil)
+	w := httptest.NewRecorder()
+
+	httpHandler(w, req)
+
+	if w.Code != 201 {
+		t.Errorf("Status code = %d, want %d", w.Code, 201)
+	}
+
+	if w.Header().Get("Content-Type") != "application/json" {
+		t.Errorf("Content-Type header = %q, want %q", w.Header().Get("Content-Type"), "application/json")
+	}
+
+	if w.Header().Get("Location") != "/api/users/123" {
+		t.Errorf("Location header = %q, want %q", w.Header().Get("Location"), "/api/users/123")
+	}
+
+	expectedBody := `{"id":123,"name":"test"}`
+	if w.Body.String() != expectedBody {
+		t.Errorf("Body = %q, want %q", w.Body.String(), expectedBody)
+	}
+}
+
+func Test_buildPath_AllHTTPMethods(t *testing.T) {
+	// Test all common HTTP methods
+	methods := []string{"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"}
+	path := "/api/resource"
+
+	for _, method := range methods {
+		t.Run(method, func(t *testing.T) {
+			result := buildPath(method, path)
+			expected := method + " " + path
+			if result != expected {
+				t.Errorf("buildPath(%q, %q) = %q, want %q", method, path, result, expected)
+			}
+		})
 	}
 }
 

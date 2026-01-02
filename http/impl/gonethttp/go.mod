@@ -3,7 +3,7 @@ module github.com/smart-libs/go-adapter/http/impl/gonethttp
 go 1.25
 
 require (
-	github.com/smart-libs/go-adapter/http/lib v0.0.1
+	github.com/smart-libs/go-adapter/http/lib v0.0.2
 	github.com/smart-libs/go-crosscutting/assertions/lib v0.0.6
 	github.com/smart-libs/go-crosscutting/serror/lib v0.0.2
 )
