@@ -14,6 +14,22 @@ type (
 	path   struct{ httpReq *http.Request }
 )
 
+func (r Request) URL() *url.URL {
+	if r.httpReq == nil {
+		return nil
+	}
+
+	return r.httpReq.URL
+}
+
+func (r Request) Method() string {
+	if r.httpReq == nil {
+		return ""
+	}
+
+	return r.httpReq.Method
+}
+
 func (p path) GetValue(pathParamName string) (string, bool) {
 	if p.httpReq == nil {
 		return "", false

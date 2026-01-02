@@ -33,7 +33,7 @@ func NewAdapter(config httpadpt.Config) (httpadpt.Adapter, error) {
 		Handler: adapter.serveMux,
 	}
 
-	if err := buildAndAddHandles(adapter.serveMux.Handle, config.Bindings); err != nil {
+	if err := buildAndAddHandles(adapter.serveMux.Handle, config.Bindings, config.Middlewares); err != nil {
 		return nil, err
 	}
 	return &adapter, nil

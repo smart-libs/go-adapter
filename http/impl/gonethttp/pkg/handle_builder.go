@@ -28,7 +28,7 @@ func buildHandler(handler httpadpt.Handler) http.HandlerFunc {
 	}
 }
 
-func buildAndAddHandles(addHandle func(path string, handler http.Handler), bindings httpadpt.Bindings) error {
+func buildAndAddHandles(addHandle func(path string, handler http.Handler), bindings httpadpt.Bindings, middlewares httpadpt.Middlewares) error {
 	fName := "httpadpt.buildAndAddHandles"
 	for i, binding := range bindings {
 		if len(binding.Condition.Methods) > 0 {
@@ -37,7 +37,8 @@ func buildAndAddHandles(addHandle func(path string, handler http.Handler), bindi
 					fmt.Sprintf("%s.Config.Bindings[%d].Condition.Path", fName, i), binding.Condition.Path)
 			}
 			for _, method := range binding.Condition.Methods {
-				addHandle(buildPath(method, *binding.Condition.Path), buildHandler(binding.Handler))
+				handler := httpadpt.WrapHandlerWithMiddlewares(binding.Handler, middlewares)
+				addHandle(buildPath(method, *binding.Condition.Path), buildHandler(handler))
 			}
 		}
 	}

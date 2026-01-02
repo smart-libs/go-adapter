@@ -344,7 +344,7 @@ func Test_buildAndAddHandles_Success(t *testing.T) {
 				registeredPaths[path] = true
 			}
 
-			err := buildAndAddHandles(addHandle, tt.bindings)
+			err := buildAndAddHandles(addHandle, tt.bindings, nil)
 
 			if (err != nil) != tt.expectedError {
 				t.Errorf("buildAndAddHandles() error = %v, want error = %v", err, tt.expectedError)
@@ -380,7 +380,7 @@ func Test_buildAndAddHandles_Error_NilPath(t *testing.T) {
 		registeredPaths[path] = true
 	}
 
-	err := buildAndAddHandles(addHandle, bindings)
+	err := buildAndAddHandles(addHandle, bindings, nil)
 
 	if err == nil {
 		t.Error("buildAndAddHandles() expected error for nil path, got nil")
@@ -399,7 +399,7 @@ func Test_buildAndAddHandles_EmptyBindings(t *testing.T) {
 		registeredPaths[path] = true
 	}
 
-	err := buildAndAddHandles(addHandle, bindings)
+	err := buildAndAddHandles(addHandle, bindings, nil)
 
 	if err != nil {
 		t.Errorf("buildAndAddHandles() error = %v, want nil", err)
@@ -429,7 +429,7 @@ func Test_buildAndAddHandles_NilHandler(t *testing.T) {
 		registeredHandler = handler
 	}
 
-	err := buildAndAddHandles(addHandle, bindings)
+	err := buildAndAddHandles(addHandle, bindings, nil)
 
 	if err != nil {
 		t.Errorf("buildAndAddHandles() error = %v, want nil", err)
@@ -466,7 +466,7 @@ func Test_buildAndAddHandles_MultipleMethodsSamePath(t *testing.T) {
 		registeredPaths[path] = true
 	}
 
-	err := buildAndAddHandles(addHandle, bindings)
+	err := buildAndAddHandles(addHandle, bindings, nil)
 
 	if err != nil {
 		t.Errorf("buildAndAddHandles() error = %v, want nil", err)
@@ -515,7 +515,7 @@ func Test_buildAndAddHandles_ErrorInMiddle(t *testing.T) {
 		registeredPaths[path] = true
 	}
 
-	err := buildAndAddHandles(addHandle, bindings)
+	err := buildAndAddHandles(addHandle, bindings, nil)
 
 	if err == nil {
 		t.Error("buildAndAddHandles() expected error for nil path, got nil")
