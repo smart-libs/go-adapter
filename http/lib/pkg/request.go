@@ -1,6 +1,9 @@
 package httpadpt
 
-import "github.com/smart-libs/go-crosscutting/assertions/lib/pkg"
+import (
+	"github.com/smart-libs/go-crosscutting/assertions/lib/pkg"
+	"net/url"
+)
 
 type (
 	QueryParams interface {
@@ -25,6 +28,8 @@ type (
 		Query() QueryParams
 		Header() HeaderParams
 		Path() PathParams
+		URL() *url.URL
+		Method() string
 	}
 )
 

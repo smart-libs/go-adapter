@@ -1,12 +1,15 @@
 package test
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	httpadpt "github.com/smart-libs/go-adapter/http/lib/pkg"
 	serror "github.com/smart-libs/go-crosscutting/serror/lib/pkg"
 	"github.com/stretchr/testify/assert"
 	"io"
+	"log/slog"
 	"net/http"
 	"testing"
 )
@@ -60,6 +63,14 @@ func testHandlerType4() (*testHandlerOutput, error) {
 		ContentType: "application/json",
 		Body:        `{"test":"test"}`,
 	}, nil
+}
+
+func testHandlerForPanicWithAnyArg() (*testHandlerOutput, error) {
+	panic("test panic")
+}
+
+func testHandlerForPanicWithError() (*testHandlerOutput, error) {
+	panic(errors.New("test panic with error"))
 }
 
 func SuiteTest(t *testing.T, adapterFactory func(config httpadpt.Config) httpadpt.Adapter) {
@@ -192,6 +203,95 @@ func SuiteTest(t *testing.T, adapterFactory func(config httpadpt.Config) httpadp
 					if assert.NoError(t, err) {
 						assert.Equal(t, `{"test":"test"}`, string(all))
 					}
+				}
+			}
+			assert.NoError(t, adapter.Stop(ctx))
+		}
+	})
+	t.Run("Test GET /v1/test that panic with any", func(t *testing.T) {
+		port := 8080
+		ctx := context.Background()
+		adapter := adapterFactory(httpadpt.Config{
+			Port: &port,
+			Bindings: []httpadpt.Binding{
+				httpadpt.NewBindingBuilderUsingPath("/v1/test").
+					WithMethods(http.MethodGet).
+					WithHandlerFunc(testHandlerForPanicWithAnyArg),
+			},
+			Middlewares: httpadpt.Middlewares{
+				httpadpt.HandlePanic,
+			},
+		})
+		if assert.NoError(t, adapter.Start(ctx)) {
+			// path = 10
+			resp, respErr := http.Get(fmt.Sprintf("http://localhost:%d/v1/test", port))
+			if assert.NoError(t, respErr) {
+				if assert.Equal(t, 500, resp.StatusCode) {
+					assert.Equal(t, httpadpt.ContentTypeProblemDetail, resp.Header.Get("Content-Type"))
+					all, err := io.ReadAll(resp.Body)
+					if assert.NoError(t, err) {
+						assert.Equal(t, `{"type":"*errorx.Error","detail":"common.internal_error: test panic"}`, string(all))
+					}
+				}
+			}
+			assert.NoError(t, adapter.Stop(ctx))
+		}
+	})
+	t.Run("Test GET /v1/test that panic with error", func(t *testing.T) {
+		port := 8080
+		ctx := context.Background()
+		adapter := adapterFactory(httpadpt.Config{
+			Port: &port,
+			Bindings: []httpadpt.Binding{
+				httpadpt.NewBindingBuilderUsingPath("/v1/test").
+					WithMethods(http.MethodGet).
+					WithHandlerFunc(testHandlerForPanicWithError),
+			},
+			Middlewares: httpadpt.Middlewares{
+				httpadpt.HandlePanic,
+			},
+		})
+		if assert.NoError(t, adapter.Start(ctx)) {
+			// path = 10
+			resp, respErr := http.Get(fmt.Sprintf("http://localhost:%d/v1/test", port))
+			if assert.NoError(t, respErr) {
+				if assert.Equal(t, 500, resp.StatusCode) {
+					assert.Equal(t, httpadpt.ContentTypeProblemDetail, resp.Header.Get("Content-Type"))
+					all, err := io.ReadAll(resp.Body)
+					if assert.NoError(t, err) {
+						assert.Equal(t, `{"type":"*errors.errorString","detail":"test panic with error"}`, string(all))
+					}
+				}
+			}
+			assert.NoError(t, adapter.Stop(ctx))
+		}
+	})
+	t.Run("Test GET /v1/test that logs HTTP request", func(t *testing.T) {
+		var buf bytes.Buffer
+		logger := slog.New(slog.NewJSONHandler(&buf, nil))
+		ctx := context.Background()
+		port := 8080
+		adapter := adapterFactory(httpadpt.Config{
+			Port: &port,
+			Bindings: []httpadpt.Binding{
+				httpadpt.NewBindingBuilderUsingPath("/v1/test").
+					WithMethods(http.MethodGet).
+					WithHandlerFunc(testHandlerType1),
+			},
+			Middlewares: httpadpt.Middlewares{
+				httpadpt.HandlePanic,
+				httpadpt.NewHandleWithSLogMiddleware(logger),
+			},
+		})
+		if assert.NoError(t, adapter.Start(ctx)) {
+			// path = 10
+			resp, respErr := http.Get(fmt.Sprintf("http://localhost:%d/v1/test", port))
+			if assert.NoError(t, respErr) {
+				if assert.Equal(t, 204, resp.StatusCode) {
+					assert.Contains(t, buf.String(), `"path":"/v1/test"`)
+					assert.Contains(t, buf.String(), `"xid":"`)
+					assert.Contains(t, buf.String(), `"duration":"`)
+					assert.Contains(t, buf.String(), `"method":"GET"`)
 				}
 			}
 			assert.NoError(t, adapter.Stop(ctx))

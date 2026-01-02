@@ -1,20 +1,23 @@
 package httpadpt
 
+import (
+	"github.com/smart-libs/go-crosscutting/types/lib/pkg/pointers"
+	"net/url"
+)
+
 // Helper functions and types for testing
 
-func intPtr(i int) *int {
-	return &i
-}
+var intPtr = pointers.To[int]
 
-func stringPtr(s string) *string {
-	return &s
-}
+var stringPtr = pointers.To[string]
 
 // mockRequest is a test implementation of Request
 type mockRequest struct {
 	query  QueryParams
 	header HeaderParams
 	path   PathParams
+	url    *url.URL
+	method string
 }
 
 func (m *mockRequest) Query() QueryParams {
@@ -27,6 +30,14 @@ func (m *mockRequest) Header() HeaderParams {
 
 func (m *mockRequest) Path() PathParams {
 	return m.path
+}
+
+func (m *mockRequest) URL() *url.URL {
+	return m.url
+}
+
+func (m *mockRequest) Method() string {
+	return m.method
 }
 
 // mockQueryParams is a test implementation of QueryParams
